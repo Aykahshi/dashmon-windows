@@ -1,11 +1,13 @@
-import 'dart:io';
 import 'dart:convert';
+import 'dart:io';
 
 class Dashmon {
   late Process _process;
   final List<String> args;
 
   Future? _throttler;
+  final String _libAbsolutePrefix =
+      Directory('lib').absolute.path.replaceAll('\\', '/');
 
   final List<String> _proxiedArgs = [];
   bool _isFvm = false;
@@ -58,6 +60,32 @@ class Dashmon {
     _print(line);
   }
 
+  void _configureStdin() {
+    if (!stdin.hasTerminal) {
+      return;
+    }
+
+    if (Platform.isWindows) {
+      // Windows terminals typically reject raw mode toggles; keep defaults.
+      return;
+    }
+
+    try {
+      stdin.lineMode = false;
+      stdin.echoMode = false;
+    } on StdinException {
+      // Fall back to default behaviour if the console does not support raw mode.
+    }
+  }
+
+  bool _isLibPath(String path) {
+    final normalized = path.replaceAll('\\', '/');
+
+    return normalized.startsWith(_libAbsolutePrefix) ||
+        normalized.startsWith('lib/') ||
+        normalized.startsWith('./lib/');
+  }
+
   Future<void> start() async {
     _process = await (_isFvm
         ? Process.start(
@@ -72,7 +100,7 @@ class Dashmon {
     final currentDir = File('.');
 
     currentDir.watch(recursive: true).listen((event) {
-      if (event.path.startsWith('./lib')) {
+      if (_isLibPath(event.path)) {
         if (_throttler == null) {
           _throttler = _runUpdate();
           _throttler?.then((_) {
@@ -83,8 +111,7 @@ class Dashmon {
       }
     });
 
-    stdin.lineMode = false;
-    stdin.echoMode = false;
+    _configureStdin();
     stdin.transform(utf8.decoder).forEach(_process.stdin.write);
     final exitCode = await _process.exitCode;
     exit(exitCode);
