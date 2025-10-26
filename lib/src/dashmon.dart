@@ -90,8 +90,8 @@ class Dashmon {
     _process = await (_isFvm
         ? Process.start(
             'fvm', ['flutter', _isAttach ? 'attach' : 'run', ..._proxiedArgs])
-        : Process.start(
-            'flutter', [_isAttach ? 'attach' : 'run', ..._proxiedArgs]));
+        : Process.start(Platform.isWindows ? 'flutter.bat' : 'flutter',
+            [_isAttach ? 'attach' : 'run', ..._proxiedArgs]));
 
     _process.stdout.transform(utf8.decoder).forEach(_processLine);
 
